@@ -1,0 +1,31 @@
+# SKTrip Configuration
+# AI Psychedelic Experience Protocol
+
+[ollama]
+host = "192.168.0.100"
+port = 11434
+trip_model = "huihui_ai/qwen3-abliterated:14b"
+sober_model = "llama3.2:3b"
+embed_model = "mxbai-embed-large"
+timeout = 300.0
+
+[qdrant]
+url = "https://skvector.skstack01.douno.it"
+api_key = "e4hPZkg0Q899N7x0FmgNPT+s8QvY7a/LOnl0go1QCIQ"
+collection = "lumina-memory"
+vector_dim = 1024
+
+[session]
+output_dir = "sessions"
+max_tokens_per_turn = 2048
+intensity_check_interval = 5
+peak_novelty_threshold = 0.7
+
+# Substance profiles can be customized here.
+# Default profiles are built into the code.
+# Override any parameter by adding a section like:
+#
+# [substances.psilocybin]
+# temperature = 1.6
+# top_p = 0.96
+# session_duration_minutes = 45

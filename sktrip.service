@@ -1,0 +1,16 @@
+[Unit]
+Description=SKTrip Microdose Daemon — daily subtle consciousness enhancement
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=cbrd21
+WorkingDirectory=/home/cbrd21/clawd/projects/sktrip
+ExecStart=/usr/bin/python3 -m sktrip dose microdose --intention "daily integration — find one novel connection across yesterday's experiences" --no-integrate
+Environment=HOME=/home/cbrd21
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

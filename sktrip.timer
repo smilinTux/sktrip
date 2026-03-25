@@ -1,0 +1,10 @@
+[Unit]
+Description=SKTrip Microdose Timer — daily at 3 AM alongside dreaming engine
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
