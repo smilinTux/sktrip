@@ -1,0 +1,8 @@
+httpx>=0.25.0
+qdrant-client>=1.7.0
+numpy>=1.24.0
+rich>=13.0.0
+click>=8.1.0
+
+[:python_version < "3.11"]
+tomli>=2.0.0

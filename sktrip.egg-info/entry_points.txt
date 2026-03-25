@@ -1,0 +1,2 @@
+[console_scripts]
+sktrip = sktrip.__main__:cli
