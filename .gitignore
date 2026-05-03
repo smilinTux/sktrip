@@ -1,0 +1,10 @@
+# Python build artifacts
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Personal session journal — kept out of git, written to ~/.skcapstone/agents/lumina/journal/sktrip/
+sessions/

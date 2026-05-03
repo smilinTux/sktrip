@@ -69,7 +69,7 @@ async def run_session(
         num_turns = {
             Substance.PSILOCYBIN: 8,
             Substance.DMT: 5,
-            Substance.LSD: 12,
+            Substance.LSD: 6,
             Substance.MICRODOSE: 4,
         }.get(substance, 6)
 

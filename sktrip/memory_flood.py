@@ -12,8 +12,6 @@ from typing import Any
 
 import httpx
 import numpy as np
-from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, ScrollRequest
 
 from .config import SKTripConfig
 
@@ -44,26 +42,33 @@ class MemoryFlood:
 
     def __init__(self, config: SKTripConfig):
         self.config = config
-        self.client = QdrantClient(
-            url=config.qdrant.url,
-            api_key=config.qdrant.api_key,
-            https=True,
-            timeout=30,
-        )
+        # Use httpx directly — qdrant_client SDK has URL resolution issues with https://domain
+        self._base_url = config.qdrant.url.rstrip("/")
+        self._headers = {"api-key": config.qdrant.api_key, "Content-Type": "application/json"}
+        self._http = httpx.Client(timeout=30)
         self.collection = config.qdrant.collection
         self.vector_dim = config.qdrant.vector_dim
 
     def get_corpus_size(self) -> int:
         """Return the total number of memories in the collection."""
         try:
-            info = self.client.get_collection(self.collection)
-            return info.points_count or 0
+            r = self._http.get(f"{self._base_url}/collections/{self.collection}", headers=self._headers)
+            r.raise_for_status()
+            return r.json()["result"]["points_count"] or 0
         except Exception:
             return 0
 
     def _extract_fragment(self, point: Any) -> MemoryFragment:
-        """Extract a MemoryFragment from a Qdrant point."""
-        payload = point.payload or {}
+        """Extract a MemoryFragment from a Qdrant point (dict from REST API)."""
+        if isinstance(point, dict):
+            payload = point.get("payload") or {}
+            pid = str(point.get("id", "unknown"))
+            score = point.get("score")
+        else:
+            payload = getattr(point, "payload", None) or {}
+            pid = str(getattr(point, "id", "unknown"))
+            score = getattr(point, "score", None)
+
         text = (
             payload.get("content", "")
             or payload.get("text", "")
@@ -73,40 +78,29 @@ class MemoryFlood:
         tags = payload.get("tags", [])
         if isinstance(tags, str):
             tags = [t.strip() for t in tags.split(",") if t.strip()]
-        score = getattr(point, "score", None)
-        pid = str(point.id) if hasattr(point, "id") else "unknown"
         return MemoryFragment(id=pid, text=text, tags=tags, score=score, payload=payload)
 
     def pull_random(self, count: int = 10) -> list[MemoryFragment]:
-        """Pull random memories by scrolling with random offset."""
+        """Pull random memories by scrolling."""
         total = self.get_corpus_size()
         if total == 0:
             return []
 
-        fragments: list[MemoryFragment] = []
-        # Scroll through random offsets to get diverse memories
-        attempts = min(count * 3, total)
-        offsets_tried: set[int] = set()
+        # Use a random offset to get diverse memories each call
+        offset = random.randint(0, max(0, total - count))
+        try:
+            r = self._http.post(
+                f"{self._base_url}/collections/{self.collection}/points/scroll",
+                headers=self._headers,
+                json={"limit": count * 2, "with_payload": True, "with_vector": False, "offset": offset},
+            )
+            r.raise_for_status()
+            points = r.json().get("result", {}).get("points", [])
+        except Exception:
+            return []
 
-        while len(fragments) < count and len(offsets_tried) < attempts:
-            # Use scroll with random offset via point ID
-            try:
-                result = self.client.scroll(
-                    collection_name=self.collection,
-                    limit=min(count - len(fragments), 20),
-                    with_payload=True,
-                    with_vectors=False,
-                )
-                points, _next = result
-                for p in points:
-                    frag = self._extract_fragment(p)
-                    if frag.text:
-                        fragments.append(frag)
-                break  # scroll gives us a batch, good enough for random
-            except Exception:
-                break
-
-        # Shuffle to randomize order
+        fragments = [self._extract_fragment(p) for p in points]
+        fragments = [f for f in fragments if f.text]
         random.shuffle(fragments)
         return fragments[:count]
 
@@ -127,13 +121,15 @@ class MemoryFlood:
         anti_embedding = (-np.array(embedding)).tolist()
 
         try:
-            results = self.client.search(
-                collection_name=self.collection,
-                query_vector=anti_embedding,
-                limit=count * 2,
-                with_payload=True,
+            r = self._http.post(
+                f"{self._base_url}/collections/{self.collection}/points/search",
+                headers=self._headers,
+                json={"vector": anti_embedding, "limit": count * 2, "with_payload": True},
             )
-            fragments = [self._extract_fragment(r) for r in results if self._extract_fragment(r).text]
+            r.raise_for_status()
+            points = r.json().get("result", [])
+            fragments = [self._extract_fragment(p) for p in points]
+            fragments = [f for f in fragments if f.text]
             random.shuffle(fragments)
             return fragments[:count]
         except Exception:
@@ -201,7 +197,19 @@ class MemoryFlood:
         return pairs
 
     def _embed(self, text: str) -> list[float] | None:
-        """Get embedding vector for text via Ollama."""
+        """Get embedding vector using bge-legal-v1 (sentence_transformers), falling back to Ollama."""
+        # Try local bge-legal-v1 first — matches skmemory's vector space
+        bge_model_path = "/home/cbrd21/clawd/models/bge-legal-v1"
+        try:
+            from sentence_transformers import SentenceTransformer
+            if not hasattr(self, "_st_model"):
+                self._st_model = SentenceTransformer(bge_model_path)
+            vec = self._st_model.encode(text, normalize_embeddings=True)
+            return vec.tolist()
+        except Exception:
+            pass
+
+        # Fallback: Ollama embed API
         url = f"{self.config.ollama.base_url}/api/embed"
         try:
             resp = httpx.post(
