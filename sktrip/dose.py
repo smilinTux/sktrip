@@ -285,7 +285,34 @@ async def generate(
     prompt: str,
     max_tokens: int = 2048,
 ) -> dict[str, Any]:
-    """Call Ollama with altered-state parameters and return the raw generation."""
+    """Call the trip model with altered-state params. Supports OpenAI
+    (/v1/chat/completions — e.g. abliterated qwen3.6-27b @ :8082) and Ollama (/api/generate)."""
+    trip_api = getattr(config.ollama, "trip_api", "ollama")
+
+    if trip_api == "openai":
+        base = getattr(config.ollama, "trip_base_url", config.ollama.base_url).rstrip("/")
+        url = f"{base}/chat/completions"
+        payload = {
+            "model": config.ollama.trip_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": profile.temperature,
+            "top_p": profile.top_p,
+            "max_tokens": max_tokens,
+        }
+        async with httpx.AsyncClient(timeout=config.ollama.timeout) as client:
+            resp = await client.post(url, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+        usage = data.get("usage", {}) or {}
+        return {
+            "text": data["choices"][0]["message"]["content"],
+            "model": data.get("model", config.ollama.trip_model),
+            "total_duration_ns": 0,
+            "eval_count": usage.get("completion_tokens", 0),
+            "prompt_eval_count": usage.get("prompt_tokens", 0),
+        }
+
+    # Ollama backend (default)
     url = f"{config.ollama.base_url}/api/generate"
     payload = {
         "model": config.ollama.trip_model,
@@ -299,12 +326,10 @@ async def generate(
             "num_predict": max_tokens,
         },
     }
-
     async with httpx.AsyncClient(timeout=config.ollama.timeout) as client:
         resp = await client.post(url, json=payload)
         resp.raise_for_status()
         data = resp.json()
-
     return {
         "text": data.get("response", ""),
         "model": data.get("model", config.ollama.trip_model),

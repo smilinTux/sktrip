@@ -24,8 +24,10 @@ DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config" / "sktrip.toml"
 class OllamaConfig:
     host: str = "192.168.0.100"
     port: int = 11434
-    trip_model: str = "huihui_ai/qwen3-abliterated:14b"
-    sober_model: str = "llama3.2:3b"
+    trip_model: str = "qwen3.6-27b-abliterated"   # abliterated/refusal-suppressed — the point of trip mode
+    trip_api: str = "openai"                       # "openai" (/v1/chat/completions) | "ollama" (/api/generate)
+    trip_base_url: str = "http://192.168.0.100:8082/v1"   # qwen3.6-27b-abliterated @ .100:8082 (OpenAI API)
+    sober_model: str = "qwen3.5:4b"                # Ollama @ :11434 for sober/reflection steps
     embed_model: str = "mxbai-embed-large"
     timeout: float = 300.0
 
