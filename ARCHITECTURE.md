@@ -34,7 +34,11 @@ graph LR
 
 Loads from `config/sktrip.toml` with sensible defaults. Three config sections:
 
-- **OllamaConfig**: host, port, model names, timeout
+- **OllamaConfig**: host, port, model names, timeout — **plus the trip backend selector**
+  (2026-06-09): `trip_model` (default **`qwen3.6-27b-abliterated`** — refusal-suppressed, the
+  point of trip mode), `trip_api` (`openai` | `ollama`), `trip_base_url`
+  (default `http://192.168.0.100:8082/v1`). `sober_model` (`qwen3.5:4b` on Ollama :11434) +
+  `embed_model` (`mxbai-embed-large`).
 - **QdrantConfig**: URL, API key, collection, vector dimensions
 - **SessionDefaults**: output dir, token limits, intensity check intervals, novelty thresholds
 
@@ -56,7 +60,19 @@ The core parameter engine. Each substance profile defines:
 **Key Functions:**
 - `inject_disruption()` — Inserts random tokens from the substance's pool into text
 - `build_dose_prompt()` — Assembles the full prompt with memory fragments, intentions, and previous chain output
-- `generate()` — Calls Ollama with altered-state parameters
+- `generate()` — Calls the **trip model** with altered-state params; **dual backend** (2026-06-09):
+
+```mermaid
+flowchart TD
+    G["generate(config, profile, prompt)"] --> Q{config.ollama.trip_api}
+    Q -->|openai| O["POST trip_base_url/chat/completions<br/>model=qwen3.6-27b-abliterated (:8082)<br/>messages=[user: prompt]<br/>temp/top_p/max_tokens"]
+    Q -->|ollama| L["POST base_url/api/generate<br/>model=trip_model (:11434)<br/>options: temp/top_p/top_k/repeat_penalty"]
+    O --> R["{text, model, eval/prompt tokens}"]
+    L --> R
+```
+The OpenAI path serves the abliterated model on the llama.cpp `/v1` server; the Ollama path
+remains for any `/api/generate` model. (Regression guard: `tests/test_dose_backends.py` —
+the old defaults `huihui_ai/qwen3-abliterated:14b` / `llama3.2:3b` were removed → 404.)
 
 ### 3. Memory Flood (`memory_flood.py`)
 
@@ -201,6 +217,34 @@ flowchart TD
 
     STORE_PHASE --> DONE([Session Complete])
 ```
+
+## Scheduling & Notification
+
+sktrip runs three ways: **ad-hoc** (`sktrip dose …`), a **systemd timer** (currently daily
+03:00), and — preferred for the fleet — a **skscheduler** job in `~/.skcapstone/config/jobs.yaml`
+(cron/weekly, node-affinity, with the built-in **`notify`** hook delivering the result to Chef
+via `sk-alert`/Telegram). This mirrors the dreaming engine's run→store→notify pattern.
+
+```mermaid
+flowchart LR
+    subgraph triggers
+      ADHOC["ad-hoc: sktrip dose …"]
+      TIMER["systemd sktrip.timer"]
+      SCHED["skscheduler job (jobs.yaml)<br/>schedule: weekly cron + notify: always"]
+    end
+    ADHOC --> RUN
+    TIMER --> RUN
+    SCHED --> RUN["sktrip dose microdose --intention …"]
+    RUN --> STORE["INTEGRATE + STORE → skmem-pg memories<br/>+ journal jsonl"]
+    RUN --> SUM["session summary (turns · peaks · insights)"]
+    SUM --> ALERT["sk-alert (Telegram DM to Chef)"]
+```
+
+- **Ad-hoc**: `sktrip dose <substance> --intention "…"` (use `--no-integrate` to skip storage).
+- **Weekly via skscheduler** (recommended): a `shell` job whose `command` runs the trip and
+  whose `notify: always` posts the summary. Requires `skcapstone.service` (the scheduler daemon)
+  to be running. See [skcapstone `docs/skscheduler.md`](../../skcapstone-repos/skcapstone/docs/skscheduler.md).
+- **Cadence change**: edit the cron in `jobs.yaml` (or the `OnCalendar` in `sktrip.timer`) — daily → weekly is a one-line change.
 
 ## Security Considerations
 
