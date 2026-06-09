@@ -245,3 +245,105 @@ class MemoryFlood:
             return self.pull_distant(anchor, count)
         else:
             return self.pull_random(count)
+
+
+class SkmemPgFlood:
+    """Memory flood backed by **skmem-pg** (Postgres + pgvector, mxbai-embed-large).
+
+    Drop-in replacement for :class:`MemoryFlood` — same ``get_corpus_size`` /
+    ``pull_random`` / ``pull_distant`` / ``pull_cross_domain`` / ``flood`` interface,
+    but reads skmemory's ``memories`` table directly (the sovereign default store).
+    Qdrant remains available via :class:`MemoryFlood` (``memory_backend: qdrant``).
+    """
+
+    def __init__(self, config: "SKTripConfig"):
+        self.config = config
+        self.dsn = config.skmempg.dsn
+        self.agent = config.skmempg.agent
+        self._conn = None
+
+    def _connection(self):
+        import psycopg
+        from pgvector.psycopg import register_vector
+        if self._conn is None or getattr(self._conn, "closed", True):
+            self._conn = psycopg.connect(self.dsn, autocommit=True)
+            register_vector(self._conn)
+        return self._conn
+
+    def get_corpus_size(self) -> int:
+        try:
+            with self._connection().cursor() as cur:
+                cur.execute("SELECT count(*) FROM memories WHERE agent=%s", (self.agent,))
+                return int(cur.fetchone()[0])
+        except Exception:
+            return 0
+
+    @staticmethod
+    def _rows_to_fragments(rows) -> "list[MemoryFragment]":
+        frags = []
+        for r in rows:
+            score = r[3] if len(r) > 3 else None
+            frags.append(MemoryFragment(id=str(r[0]), text=r[1] or "", tags=list(r[2] or []), score=score))
+        return frags
+
+    def pull_random(self, count: int = 10) -> "list[MemoryFragment]":
+        with self._connection().cursor() as cur:
+            cur.execute(
+                "SELECT id, content, tags FROM memories "
+                "WHERE agent=%s AND content IS NOT NULL ORDER BY random() LIMIT %s",
+                (self.agent, count))
+            return self._rows_to_fragments(cur.fetchall())
+
+    def pull_distant(self, anchor_text: str, count: int = 10) -> "list[MemoryFragment]":
+        vec = self._embed(anchor_text)
+        if not vec:
+            return self.pull_random(count)
+        vlit = "[" + ",".join(map(str, vec)) + "]"
+        with self._connection().cursor() as cur:
+            cur.execute(
+                "SELECT id, content, tags FROM memories "
+                "WHERE agent=%s AND embedding IS NOT NULL "
+                "ORDER BY embedding <=> %s::vector DESC LIMIT %s",   # DESC = most DISTANT
+                (self.agent, vlit, count))
+            return self._rows_to_fragments(cur.fetchall())
+
+    def pull_cross_domain(self, count: int = 10) -> "list[MemoryFragment]":
+        with self._connection().cursor() as cur:
+            cur.execute(
+                "SELECT DISTINCT ON (tags[1]) id, content, tags FROM memories "
+                "WHERE agent=%s AND content IS NOT NULL AND array_length(tags,1) >= 1 "
+                "ORDER BY tags[1], random() LIMIT %s",
+                (self.agent, count))
+            frags = self._rows_to_fragments(cur.fetchall())
+        if len(frags) < count:
+            frags += self.pull_random(count - len(frags))
+        random.shuffle(frags)
+        return frags[:count]
+
+    def _embed(self, text: str) -> "list[float] | None":
+        """Embed with mxbai-embed-large to match skmem-pg's vector space."""
+        url = f"{self.config.ollama.base_url}/api/embed"
+        try:
+            resp = httpx.post(
+                url, json={"model": self.config.ollama.embed_model, "input": (text or "")[:1100]},
+                timeout=30.0)
+            resp.raise_for_status()
+            embs = resp.json().get("embeddings", [])
+            return embs[0] if embs else None
+        except Exception:
+            return None
+
+    def flood(self, count: int = 10, anchor: "str | None" = None,
+              cross_domain: bool = False) -> "list[MemoryFragment]":
+        if cross_domain:
+            return self.pull_cross_domain(count)
+        if anchor:
+            return self.pull_distant(anchor, count)
+        return self.pull_random(count)
+
+
+def make_memory_flood(config: "SKTripConfig"):
+    """Factory: return the flood backend per ``config.memory_backend`` (default skmem-pg)."""
+    if getattr(config, "memory_backend", "skmempg") == "qdrant":
+        return MemoryFlood(config)
+    return SkmemPgFlood(config)

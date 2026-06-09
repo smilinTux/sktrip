@@ -76,7 +76,21 @@ the old defaults `huihui_ai/qwen3-abliterated:14b` / `llama3.2:3b` were removed 
 
 ### 3. Memory Flood (`memory_flood.py`)
 
-Interface to Qdrant for pulling memory fragments. Four retrieval modes:
+Pulls memory fragments to seed/disrupt the trip. **Two backends** (2026-06-09), selected by
+`memory_backend` (default **`skmempg`**, with `qdrant` kept optional):
+
+```mermaid
+flowchart TD
+    F["make_memory_flood(config)"] --> S{config.memory_backend}
+    S -->|skmempg default| PG["SkmemPgFlood<br/>psycopg3 + pgvector<br/>reads memories table @ skmem-pg<br/>mxbai-embed-large vector space"]
+    S -->|qdrant| QD["MemoryFlood<br/>httpx → skvector/Qdrant REST<br/>(legacy; cluster-dependent)"]
+    PG --> M["random · distant · cross-domain"]
+    QD --> M
+```
+
+Both expose the same interface (`get_corpus_size`, `pull_random`, `pull_distant`,
+`pull_cross_domain`, `flood`). **skmem-pg is the sovereign default** — same Postgres + mxbai
+space as skmemory; no dependency on the (offline-prone) skvector cluster. Four retrieval modes:
 
 ```mermaid
 graph TD

@@ -15,7 +15,7 @@ from .config import SKTripConfig
 from .dose import Substance, SubstanceProfile
 from .freeassoc import FreeAssociationEngine
 from .integration import IntegrationEngine, IntegrationReport
-from .memory_flood import MemoryFlood
+from .memory_flood import make_memory_flood
 from .recorder import SessionRecorder
 
 console = Console()
@@ -90,7 +90,7 @@ async def run_session(
 
     # Phase 1: SET — prepare memory corpus
     console.print("\n[cyan]Phase 1: Loading memory corpus...[/]")
-    memory_flood = MemoryFlood(config)
+    memory_flood = make_memory_flood(config)
     corpus_size = memory_flood.get_corpus_size()
     console.print(f"  Memory corpus: {corpus_size} vectors")
 

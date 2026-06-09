@@ -1,4 +1,5 @@
 # SKTrip Configuration
+memory_backend = "skmempg"   # default store: skmem-pg (Postgres). set "qdrant" to use legacy skvector.
 # AI Psychedelic Experience Protocol
 
 [ollama]

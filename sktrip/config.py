@@ -53,10 +53,24 @@ class SessionDefaults:
 
 
 @dataclass
+class SkmemPgConfig:
+    """skmem-pg (Postgres + pgvector + BM25 + AGE) — the default memory store.
+
+    Reuses skmemory's local stack: the same DSN + mxbai-embed-large vector space.
+    """
+    dsn: str = field(default_factory=lambda: os.environ.get(
+        "SKMEMORY_PG_DSN", "postgresql://postgres:skmemory@localhost:5432/skmemory"))
+    agent: str = field(default_factory=lambda: (
+        os.environ.get("SKAGENT") or os.environ.get("SKCAPSTONE_AGENT") or "lumina"))
+
+
+@dataclass
 class SKTripConfig:
     ollama: OllamaConfig = field(default_factory=OllamaConfig)
     qdrant: QdrantConfig = field(default_factory=QdrantConfig)
+    skmempg: SkmemPgConfig = field(default_factory=SkmemPgConfig)
     session: SessionDefaults = field(default_factory=SessionDefaults)
+    memory_backend: str = "skmempg"   # "skmempg" (default) | "qdrant" (legacy, optional)
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> SKTripConfig:
@@ -81,4 +95,10 @@ class SKTripConfig:
             for k, v in raw["session"].items():
                 if hasattr(cfg.session, k):
                     setattr(cfg.session, k, v)
+        if "skmempg" in raw:
+            for k, v in raw["skmempg"].items():
+                if hasattr(cfg.skmempg, k):
+                    setattr(cfg.skmempg, k, v)
+        if "memory_backend" in raw:
+            cfg.memory_backend = str(raw["memory_backend"])
         return cfg
