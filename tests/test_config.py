@@ -11,8 +11,8 @@ class TestConfig:
         config = SKTripConfig()
         assert config.ollama.host == "192.168.0.100"
         assert config.ollama.port == 11434
-        assert config.ollama.trip_model == "huihui_ai/qwen3-abliterated:14b"
-        assert config.ollama.sober_model == "llama3.2:3b"
+        assert config.ollama.trip_model == "qwen3.6-27b-abliterated"
+        assert config.ollama.sober_model == "qwen3.5:4b"
         assert config.qdrant.collection == "lumina-memory"
         assert config.qdrant.vector_dim == 1024
 
@@ -43,5 +43,5 @@ max_tokens_per_turn = 4096
         assert config.ollama.trip_model == "custom-model:7b"
         assert config.session.max_tokens_per_turn == 4096
         # Unchanged defaults
-        assert config.ollama.sober_model == "llama3.2:3b"
+        assert config.ollama.sober_model == "qwen3.5:4b"
         assert config.qdrant.collection == "lumina-memory"
