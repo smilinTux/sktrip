@@ -88,16 +88,19 @@ class FreeAssociationEngine:
             if self.entity_contact and i % 4 == 2:
                 extra_prompt = random.choice(ENTITY_CONTACT_PROMPTS)
 
-            # Build the prompt
+            # Build the prompt. The first turn carries the session intention;
+            # subsequent turns free-associate off the previous wave.
             prompt = build_dose_prompt(
                 profile=self.profile,
                 memory_fragments=frag_texts,
-                intention=intention if i == 0 else extra_prompt,
+                intention=intention if i == 0 else None,
                 previous_output=previous_output,
             )
 
-            # Add entity contact if applicable
-            if extra_prompt and not self.entity_contact:
+            # Entity-contact turns append a labeled entity prompt. (The old guard
+            # `and not self.entity_contact` made this dead code — extra_prompt is
+            # only ever set WHEN entity_contact is on.)
+            if extra_prompt:
                 prompt += f"\n\n[ENTITY CONTACT]\n{extra_prompt}"
 
             # Generate

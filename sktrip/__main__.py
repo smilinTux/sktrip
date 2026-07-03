@@ -198,26 +198,52 @@ def status(ctx: click.Context) -> None:
     console.print(f"  Embed model: {config.ollama.embed_model}")
     console.print(f"  Ollama:      {config.ollama.base_url}")
 
-    # Check Ollama connectivity
+    # The trip model may be served via an OpenAI-compatible endpoint (the
+    # abliterated qwen3.6-27b @ :8082) rather than Ollama — probe the RIGHT one,
+    # otherwise a healthy trip model is falsely reported as "Not found".
     import httpx
+    trip_api = getattr(config.ollama, "trip_api", "ollama")
+    if trip_api == "openai":
+        trip_base = getattr(config.ollama, "trip_base_url", config.ollama.base_url).rstrip("/")
+        console.print(f"  Trip API:    openai @ {trip_base}")
+        try:
+            resp = httpx.get(f"{trip_base}/models", timeout=5.0)
+            ids = [m.get("id", "") for m in resp.json().get("data", [])]
+            trip_ok = any(config.ollama.trip_model in i for i in ids)
+            console.print(f"  Trip ready:  {'[green]✓[/]' if trip_ok else '[red]✗ Not found[/]'}")
+        except Exception as e:
+            console.print(f"  Trip ready:  [red]✗ Offline ({e})[/]")
+
+    # Ollama connectivity (sober + embed models live here)
     try:
         resp = httpx.get(f"{config.ollama.base_url}/api/tags", timeout=5.0)
         models = [m["name"] for m in resp.json().get("models", [])]
-        trip_ok = any(config.ollama.trip_model in m for m in models)
         sober_ok = any(config.ollama.sober_model in m for m in models)
-        console.print(f"  Connection:  [green]✓ Online[/]")
-        console.print(f"  Trip ready:  {'[green]✓[/]' if trip_ok else '[red]✗ Not found[/]'}")
+        embed_ok = any(config.ollama.embed_model in m for m in models)
+        if trip_api != "openai":
+            trip_ok = any(config.ollama.trip_model in m for m in models)
+            console.print(f"  Trip ready:  {'[green]✓[/]' if trip_ok else '[red]✗ Not found[/]'}")
+        console.print(f"  Ollama:      [green]✓ Online[/]")
         console.print(f"  Sober ready: {'[green]✓[/]' if sober_ok else '[red]✗ Not found[/]'}")
+        console.print(f"  Embed ready: {'[green]✓[/]' if embed_ok else '[red]✗ Not found[/]'}")
     except Exception as e:
-        console.print(f"  Connection:  [red]✗ Offline ({e})[/]")
+        console.print(f"  Ollama:      [red]✗ Offline ({e})[/]")
 
-    # Memory corpus
+    # Memory corpus — report the ACTIVE backend (skmem-pg by default; Qdrant if selected),
+    # not a hardcoded Qdrant handle. Using the wrong backend showed "Vectors: 0" on a
+    # healthy 17k-row skmem-pg corpus.
     console.print("\n[bold]Memory Corpus:[/]")
-    console.print(f"  Qdrant:      {config.qdrant.url}")
-    console.print(f"  Collection:  {config.qdrant.collection}")
+    backend = getattr(config, "memory_backend", "skmempg")
+    if backend == "qdrant":
+        console.print(f"  Backend:     Qdrant (legacy)")
+        console.print(f"  Qdrant:      {config.qdrant.url}")
+        console.print(f"  Collection:  {config.qdrant.collection}")
+    else:
+        console.print(f"  Backend:     skmem-pg (Postgres + pgvector, mxbai-embed-large)")
+        console.print(f"  Agent:       {config.skmempg.agent}")
     try:
-        from .memory_flood import MemoryFlood
-        mf = MemoryFlood(config)
+        from .memory_flood import make_memory_flood
+        mf = make_memory_flood(config)
         size = mf.get_corpus_size()
         console.print(f"  Vectors:     [green]{size}[/]")
     except Exception as e:
