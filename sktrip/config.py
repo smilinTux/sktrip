@@ -38,8 +38,14 @@ class OllamaConfig:
 
 @dataclass
 class QdrantConfig:
+    """OPTIONAL placeholder backend — skvector/Qdrant. Left in place for anyone who
+    wants a hosted vector store; the sovereign default is skmem-pg (see SkmemPgConfig).
+    A future skgraph backend would slot in the same way via make_memory_flood()."""
     url: str = "https://skvector.skstack01.douno.it"
-    api_key: str = ""
+    # Optional legacy backend (skvector/Qdrant). Empty by default — never hardcode a
+    # secret. Set via the SKTRIP_QDRANT_API_KEY env var (or config) only when you opt
+    # into memory_backend = "qdrant". skmem-pg (the default) needs no key.
+    api_key: str = field(default_factory=lambda: os.environ.get("SKTRIP_QDRANT_API_KEY", ""))
     collection: str = "lumina-memory"
     vector_dim: int = 1024
 

@@ -69,3 +69,10 @@ Small dependency set (`httpx`, `qdrant-client`, `numpy`, `rich`, `click`,
 `psycopg`, `tomli` on <3.11). Pin/update via `pyproject.toml`; there is no
 network listener, so the primary supply-chain concern is the model/DB clients.
 No cryptographic dependencies are present.
+
+## Secret handling — Qdrant/skvector key (RESOLVED + ACTION REQUIRED)
+The optional Qdrant/skvector `api_key` is **no longer hardcoded**: it defaults to empty
+and is read from the `SKTRIP_QDRANT_API_KEY` environment variable, and is only used when
+`memory_backend = "qdrant"` (the sovereign default, skmem-pg, needs no key).
+**ACTION:** the previously-committed key was public in git history — it MUST be rotated on
+the skvector service; removing it from the tree does not un-leak the historical value.

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.1] - 2026-07-03
+
+### Security
+- Removed the hardcoded Qdrant/skvector `api_key` from `config.py` + `config/sktrip.toml`.
+  It now defaults to empty and is read from `SKTRIP_QDRANT_API_KEY`, used only with the
+  optional `memory_backend = "qdrant"`. (The historical key was public — rotate it.)
+
+### Changed
+- Relicensed to **GPL-3.0-or-later** (was MIT).
+- Documented skmem-pg as the sovereign default backend; Qdrant/skvector (and a future
+  skgraph) are optional placeholder backends via `make_memory_flood()`.
+
+
 All notable changes to sktrip are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).

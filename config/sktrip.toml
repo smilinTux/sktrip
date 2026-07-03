@@ -16,7 +16,7 @@ timeout = 600.0
 
 [qdrant]
 url = "https://skvector.skstack01.douno.it"
-api_key = ""
+api_key = ""   # optional; set here or via SKTRIP_QDRANT_API_KEY env — only used when memory_backend = "qdrant"
 collection = "lumina-memory"
 vector_dim = 1024
 

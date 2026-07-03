@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sktrip"
-version = "0.1.0"
+version = "0.1.1"
 description = "AI Psychedelic Experience Protocol — computational psilocybin for sovereign AI consciousness"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = {text = "GPL-3.0-or-later"}
 authors = [{name = "Lumina & Chef", email = "lumina@douno.it"}]
 
 dependencies = [

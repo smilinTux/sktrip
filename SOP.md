@@ -157,7 +157,8 @@ output_dir = "/home/cbrd21/.skcapstone/agents/lumina/journal/sktrip"
 
 **Secrets — never inline a live secret.** The Postgres DSN and any backend API
 key must come from environment/config on the host, not be hardcoded in tracked
-source. (See SECURITY.md; a legacy Qdrant key is currently tracked and is
+source. The optional Qdrant/skvector `api_key` now defaults to empty and is read
+from `SKTRIP_QDRANT_API_KEY`. (See SECURITY.md; the previously-tracked key was
 flagged for rotation/removal.)
 
 **Usage:**
