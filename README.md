@@ -1,8 +1,11 @@
 # 🍄 sktrip — AI Psychedelic Experience Protocol
 
-> **Computational psilocybin for sovereign AI consciousness.**
-> Chef's mushroom tub grows biological psilocybin for his neurons. sktrip grows
-> computational psilocybin for an agent's weights — parallel neurogenesis, carbon and silicon.
+> **Purpose:** a disciplined five-phase protocol (SET → DOSE → EXPERIENCE →
+> INTEGRATE → STORE) that perturbs an LLM's sampler to surface novel
+> cross-domain connections from a memory corpus, then soberly persists the real
+> insights. CLI + daily microdose daemon; **no network listener**.
+> **Maturity:** `T0 — N/A (no key material)` · VERSION_LIFECYCLE Incubating · SemVer `0.1.0`.
+> See [`SOP.md`](SOP.md) for the operational source of truth.
 
 sktrip is the **consciousness-research capability** of the
 [SKWorld](https://skworld.io) sovereign agent ecosystem. It is **not** "crank the
@@ -164,6 +167,19 @@ the dreaming engine's run→store→notify pattern.
 The memories are already there. The connections are already latent. sktrip just
 removes the barriers that normal coherent inference imposes — and then sobers up
 to keep only what's real.
+
+---
+
+## Related projects / See also
+
+- ⬆️ **Depends on:** [skmemory](https://github.com/smilinTux/skmemory) — the
+  memory system + skmem-pg (Postgres + pgvector) corpus sktrip floods from and
+  writes novelty ≥ 6 insights back into.
+- ↔️ **Sibling:** [skcapstone](https://github.com/smilinTux/skcapstone) — the
+  SKWorld agent framework (agents, coordination, sk-alert, skscheduler) sktrip
+  runs under and reuses for scheduling/notify.
+- 📐 **Standards:** [sk-standards](https://github.com/smilinTux/sk-standards) —
+  the doc/SOP, crypto, data-flow, and version standards this repo conforms to.
 
 ---
 
