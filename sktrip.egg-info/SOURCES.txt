@@ -1,3 +1,4 @@
+LICENSE
 README.md
 pyproject.toml
 sktrip/__init__.py
@@ -16,6 +17,10 @@ sktrip.egg-info/entry_points.txt
 sktrip.egg-info/requires.txt
 sktrip.egg-info/top_level.txt
 tests/test_config.py
+tests/test_daemon.py
 tests/test_dose.py
+tests/test_dose_backends.py
 tests/test_integration.py
+tests/test_memory_backend.py
 tests/test_recorder.py
+tests/test_status.py
